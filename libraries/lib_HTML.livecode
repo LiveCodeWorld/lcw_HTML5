@@ -187,18 +187,6 @@ command html_DeconstructRefLink someLine, @someText, @someLink
    end if
 end html_DeconstructRefLink
 
-function html_ConstructRefLink someText, someLink, pTarget
-   if someLink is empty then return someText
-   replace quote with "&quot;" in someLink
-   put "<a href=" & quote & someLink & quote  into someLink
-   if pTarget is not empty then
-      -- "_blank" -- for opening in a new window
-      put space & "target=" &quote& pTarget &quote after someLink
-   end if
-   put ">" & someText & "</a>" after someLink
-   return someLink
-end html_ConstructRefLink
-
 function html_ExtractHREF someHtml
    /*
    This one is prob better:
@@ -436,163 +424,6 @@ command html_DecomposeImgTag htmlBit, @srcURL, @altWord
 end html_DecomposeImgTag
 
 
---> Html | List
--
-function html_ConstructList someLines, pIsOrdered
-   switch pIsOrdered
-      case "ordered"
-         put "<ol>" into someHtml
-         break
-      default
-         put "<ul>" into someHtml
-   end switch
-   repeat for each line someLine in someLines
-      put CR & tab & "<li>" & html_ConstructRefLink (someLine, someLine) & "</li>" after someHtml
-      -- put CR & tab & "<li>" & someLine after someHtml
-   end repeat
-   switch pIsOrdered
-      case "ordered"
-         put CR & "</ol>" after someHtml
-         break
-      default
-         put CR & "</ul>" after someHtml
-   end switch
-   return someHtml
-end html_ConstructList
-
-
---> Html | Style
--
-function html_MakeBold someText
-   html_AddTag someText, "b"
-   return someText
-end html_MakeBold
-
-function html_MakeColoured someText, someColour
-   if someColour is empty then return someText
-   colour_HexNormalise someColour
-   return "<font color=" & kwote(someColour) & ">" & someText & "</font>"
-end html_MakeColoured
-
-function html_ConstructColouredText someText, someColour
-   -- creates or changes coloured html
-   if someColour is empty then return someText
-   colour_HexNormalise someColour
-   
-   -- put "<font color=" & quote & "(.+)" & quote & ">"  into someReg
-   put "<font color=" & quote & "([^\>]+)" & quote & ">"  into someReg
-   if matchchunk(someText, someReg, startNum, endNum) is true then
-      put someColour into char startNum to endNum of someText
-      return someText
-   else
-      return "<font color=" & kwote(someColour) & ">" & someText & "</font>"
-   end if
-end html_ConstructColouredText
-
-command html_DeconstructLink someLine, @someText, @someLink
-   -- <a href="/Users/david/Movies/crossingTheBridge.mp4">Crossing The Bridge</a>
-   -- (?Usi)
-   put "<a (href)|(name)=" & quote & "([^>]*)" & quote & ">([^<]*)</a>" into someReg
-   if matchtext(someLine, someReg, dummy1, dummy2, someLink, someText) is false then
-      put someLine into someText
-      put empty into someLink
-   end if
-end html_DeconstructLink
-
-command html_DeconstructNameLink someLine, @someText, @someLink
-   -- <a name="/Users/david/Movies/crossingTheBridge.mp4">Crossing The Bridge</a>
-   
-   put "<a name=" & quote & "([^>]*)" & quote & ">([^<]*)</a>" into someReg
-   if matchtext(someLine, someReg, someLink, someText) is false then
-      put someLine into someText
-      put empty into someLink
-   end if
-end html_DeconstructNameLink
-
-function html_ConstructNameLink someText, someLink, pSomeColour
-   if someLink is empty then return someText
-   -- replace quote with "'" in someLink
-   replace quote with "&quot;" in someLink
-   put "<a name=" & kwote(someLink) & ">" & someText & "</a>" into someLink
-   if pSomeColour is not empty then return html_ConstructColouredText (someLink, pSomeColour)
-   return someLink
-end html_ConstructNameLink
-
-
---> HTML | Video
--
-function html_ConstructVideoTag videoURL, pMediaType, pVideoWidth, pShowControls, pPosterImageFile, pFallbackHtml
-   -- this is a single source video tag
-   if pFallbackHtml is empty then put "This is fallback content to display for user agents that do not support the video tag." into pFallbackHtml
-   
-   put "<video" into someHTML
-   put space & "src=" & quote & videoURL & quote after someHTML
-   switch word 1 of pMediaType
-      case "webm"
-         put space & "type='video/webm'" after someHTML
-         break
-      case "mp4"
-         put  space & "type='video/mp4'" after someHTML
-   end switch
-   
-   if pVideoWidth is not empty then put space & "width=" & quote & pVideoWidth & quote after someHTML
-   if pShowControls is not false then put space & "controls" after someHTML
-   if pPosterImageFile is not empty then put space & "poster=" & quote & pPosterImageFile & quote after someHTML
-   put ">" after someHTML
-   
-   put pFallbackHtml after someHTML
-   put "</video>" after someHTML
-   
-   return someHTML
-end html_ConstructVideoTag
-
-function html_ConstructOpenVideoTag pVideoWidth, pShowControls, pPosterImageFile
-   -- this constructs an opening video tag
-   put "<video" into someHTML
-   if pPosterImageFile is not empty then put space & "poster=" & quote & pPosterImageFile & quote after someHTML
-   if pVideoWidth is not empty then put space & "width=" & quote & pVideoWidth & quote after someHTML
-   if pShowControls is not false then put space & "controls" after someHTML
-   put ">" after someHTML
-   return someHTML
-end html_ConstructOpenVideoTag
-
-function html_ConstructVideoSourceTag videoURL, pMediaType
-   -- multiple source video tag
-   -- should enhance to extract pMediaType from file extension
-   put "<source src=" & quote & videoURL & quote into someHTML
-   switch pMediaType
-      case "webm"
-         put space & "type='video/webm" after someHTML
-         break
-      case "mp4"
-         put  space & "type='video/mp4" after someHTML
-   end switch
-   -- maybe add codecs?
-   put ">" after someHTML
-   return someHTML
-end html_ConstructVideoSourceTag
-
-
---> Html | Sections
--
-function html_AddHeaders someBody, htmlTitle, headerSection
-   -- was "htmlHeaders"
-   put "<HTML>" into someHtml
-   if headerSection is empty then
-      put CR & tab & "<HEAD><TITLE>" & htmlTitle & "</TITLE></HEAD>" after someHtml
-   else
-      put CR & tab & "<HEAD>" after someHtml
-      put CR & tab & tab & "<TITLE>" & htmlTitle & "</TITLE>" after someHtml
-      put CR & outline_IncreaseIndent(headerSection, 2) after someHtml
-      put CR & tab & "</HEAD>" after someHtml
-   end if
-   put CR & tab & "<BODY>" after someHtml
-   put CR & outline_IncreaseIndent(someBody, 2) after someHtml
-   put CR & tab & "</BODY>" after someHtml
-   put CR & "</HTML>" after someHtml
-   return someHtml
-end html_AddHeaders
-
 on html_Deconstruct someHTML, @someHeader, @someBody, @someTitle
    put html_ExtractHeader(someHTML) into someHeader
    put xml_GetTagContents("title", someHeader) into someTitle
@@ -781,10 +612,6 @@ end html_StripTags
 /*
 An assorted array of handlers old and new for parsing and creating HTML tags.
 */
-
-command html_AddTag @someText, tagName
-   put format ("<%s>%s</%s>", tagName, someText, tagName) into someText
-end html_AddTag
 
 command html_ParamDeconstuct someTag, @someKey, @someValue
    -- replace lineFeed with empty in inputTag -- seems neessary
