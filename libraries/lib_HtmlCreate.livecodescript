@@ -12,156 +12,10 @@ version: 0.1
 
 --> Working on
 -
-function wiki_MergeFragment tName, wikiDomain, pageSlug, pageTitle
-   put scaffold_Get (tName) into htmlTemplate
-   put merge (htmlTemplate) into htmlFragment
-   return htmlFragment
-end wiki_MergeFragment
-
-function wiki_RenderHtml htmlTemplate, wikiDomain, pPageSlug, pOwnedBy
-   if pPageSlug is empty then put "welcome-visitors" into pPageSlug
-   --
-   put pageArray_Get (wikiDomain, pPageSlug) into pageArray
-   put pageArray ["story"] into storyArray
-   put pageArray ["title"] into pageTitle
-   put fedwiki_ConstructSlug (pageTitle) into pageSlug
-   --
-   wikiClient_SetEndScript htmlTemplate, pageTitle, pOwnedBy
-   --
-   put wiki_MergeFragment ("wiki-handle-parent", wikiDomain, pageSlug, pageTitle) & CR after pageDivContents
-   put wiki_MergeFragment ("wiki-twins", wikiDomain, pageSlug, pageTitle) & CR after pageDivContents
-   put wiki_MergeFragment ("wiki-header", wikiDomain, pageSlug, pageTitle) & CR after pageDivContents
-   --
-   put wiki_ConstructStoryDiv (storyArray) & CR after pageDivContents
-   --
-   put wiki_MergeFragment ("wiki-backlinks", wikiDomain, pageSlug, pageTitle) & CR after pageDivContents
-   put wiki_ConstructFooter (wikiDomain, pageSlug) after pageDivContents
-   
-   put wiki_ConstructPageDiv (pageDivContents, pPageSlug) into pageDiv
-   --
-   wiki_SetTagOffsets htmlTemplate, "pages", startCharNum, endCharNum
-   put the result into innerHTML
-   if innerHTML is not empty then
-      put pageDiv into char startCharNum to endCharNum of htmlTemplate
-   end if
-   return htmlTemplate
-end wiki_RenderHtml
-
-command wikiClient_SetEndScript @htmlTemplate, pageTitle, pOwnedBy, pIsAuthenticated, pIsClaimed, pIsOwner, pSeedNeighbors, pUser
-   if pOwnedBy is empty then put "David Bovill" into pOwnedBy
-   --
-   replace "{{title}}" with pageTitle in htmlTemplate
-   --
-   wiki_SetTagOffsets htmlTemplate, "owned", startCharNum, endCharNum
-   put the result into innerHTML
-   if htmlTemplate is not empty then
-      curly_ReplaceText innerHTML, "ownedBy", pOwnedBy
-      put innerHTML into char startCharNum to endCharNum of htmlTemplate
-   end if
-   --
-   put pIsAuthenticated is true into pIsAuthenticated
-   curly_ReplaceText htmlTemplate, "authenticated", pIsAuthenticated
-   --
-   put pIsClaimed is true into pIsClaimed
-   curly_ReplaceText htmlTemplate, "owned", pIsClaimed
-   --
-   put pIsOwner is true into pIsOwner
-   curly_ReplaceText htmlTemplate, "isOwner", pIsOwner
-   --
-   curly_ReplaceText htmlTemplate, "seedNeighbors", pSeedNeighbors
-   --
-   curly_ReplaceText htmlTemplate, "user", pUser
-end wikiClient_SetEndScript
-
-function wiki_ConstructFooter wikiDomain, pageSlug
-   put scaffold_Get ("wiki-footer") into footerFragment
-   return footerFragment
-end wiki_ConstructFooter
-
-command wiki_SetTagOffsets sHTML, tagName, @startCharNum, @endCharNum
-   put merge ("{{#[[tagName]]}}") into startTag
-   put merge ("{{/[[tagName]]}}") into endTag
-   --
-   put offset (startTag, sHTML) into startCharNum
-   if startCharNum = 0 then
-      put 0 into endCharNum
-      return empty
-   else
-      get offset (endTag, sHTML, startCharNum)
-      if it = 0 then
-         put 0 into endCharNum
-         return empty
-      end if
-      put it + startCharNum - 1 into endInnerCharNum
-      put endInnerCharNum + the number of chars of endTag into endCharNum
-      --
-      put startCharNum + the number of chars of startTag into startInnerCharNum
-      put char startInnerCharNum to endInnerCharNum of sHTML into innerHtml
-      return innerHtml
-   end if
-end wiki_SetTagOffsets
-
-function wiki_ConstructTextDiv sText, pID
-   /*
-   -- the <a class="internal" href="/astral-ship.html" data-page-name="astral-ship" title="view">Astral Ship</a>.
-   */
-   pageArray_AssignID pID
-   put xml_Enclose (sText, "p") into sPara
-   put html_ConstructDiv (sPara, "item paragraph", pID) into textDiv
-   return textDiv
-end wiki_ConstructTextDiv
-
-function wiki_ConstructFactoryDiv pID, pHelpText
-   pageArray_AssignID pID
-   if pHelpText is empty then
-      put "Double-Click to Edit<br>Drop Text or Image to Insert<br>Or Choose a Plugin" into pHelpText
-   end if
-   
-   put scaffold_Get ("wiki-factory") into htmlTemplate
-   put merge (htmlTemplate) into factoryDiv
-   return factoryDiv
-end wiki_ConstructFactoryDiv
-
-function wiki_ConstructStoryDiv storyArray
-   repeat with itemNum = 1 to item 2 of the extents of storyArray
-      put storyArray [itemNum] into itemArray
-      --
-      put itemArray ["id"] into pID
-      put itemArray ["text"] into sText
-      --
-      put itemArray ["type"] into itemType
-      switch itemType
-         case "paragraph"
-            put wiki_ConstructTextDiv (sText) into newDiv
-            break
-         case "markdown"
-            put wiki_ConstructTextDiv (sText) into newDiv
-            break
-         case "factory"
-            put wiki_ConstructFactoryDiv (pID) into newDiv
-            break
-         default
-            -- breakpoint
-      end switch
-      --
-      put newDiv & CR after storyDiv
-   end repeat
-   delete char -1 of storyDiv
-   return storyDiv
-end wiki_ConstructStoryDiv
 
 
 --> Html | Create
 -
-function wiki_ConstructPageDiv storyDiv, pPageSlug, pTabChars
-   if pTabChars is empty then put "  " into pTabChars
-   --
-   put html_ConstructDiv (storyDiv, "paper") into paperDiv
-   line_Indent paperDiv, pTabChars
-   put html_ConstructDiv (paperDiv, "page", pPageSlug, "tabindex='-1'") into pageDiv
-   return pageDiv
-end wiki_ConstructPageDiv
-
 function html_ConstructDiv divContent, pDivClass, pDivID, pOtherParams, pTabChars
    if pTabChars is empty then put "  " into pTabChars
    --
@@ -230,8 +84,8 @@ function xml_ConstructSimpleTag tagName, attributeName, attributeValue
    put "<" & tagName into taggedText
    put (the paramcount - 1)/2  into attributeCount
    repeat with attributeNum = 1 to attributeCount
-      put param(2*attributeNum) into attributeName
-      put param(2*attributeNum + 1) into attributeValue
+      put param (2*attributeNum) into attributeName
+      put param (2*attributeNum + 1) into attributeValue
       put space & attributeName & "=" & kwote(attributeValue) after taggedText
       add 1 to attributNum
    end repeat
@@ -292,26 +146,6 @@ function html_ConstructColouredText someText, someColour
       return "<font color=" & kwote(someColour) & ">" & someText & "</font>"
    end if
 end html_ConstructColouredText
-
-command html_DeconstructLink someLine, @someText, @someLink
-   -- <a href="/Users/david/Movies/crossingTheBridge.mp4">Crossing The Bridge</a>
-   -- (?Usi)
-   put "<a (href)|(name)=" & quote & "([^>]*)" & quote & ">([^<]*)</a>" into someReg
-   if matchtext(someLine, someReg, dummy1, dummy2, someLink, someText) is false then
-      put someLine into someText
-      put empty into someLink
-   end if
-end html_DeconstructLink
-
-command html_DeconstructNameLink someLine, @someText, @someLink
-   -- <a name="/Users/david/Movies/crossingTheBridge.mp4">Crossing The Bridge</a>
-   
-   put "<a name=" & quote & "([^>]*)" & quote & ">([^<]*)</a>" into someReg
-   if matchtext(someLine, someReg, someLink, someText) is false then
-      put someLine into someText
-      put empty into someLink
-   end if
-end html_DeconstructNameLink
 
 function html_ConstructNameLink someText, someLink, pSomeColour
    if someLink is empty then return someText
