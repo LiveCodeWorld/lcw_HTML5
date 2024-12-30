@@ -69,29 +69,6 @@ function html_ExtractBodyContents someHTML
    return innerXML
 end html_ExtractBodyContents
 
-function pageItem_GetFirstImage itemHTML
-   -- "data-imagestyle='fullwiki'"
-   
-   -- lets do a bit of hacking first
-   put html_ExtractOpeningTag ("img", itemHTML) into imgTag
-   xhtml_TidyNode imgTag
-   --
-   put html_GetImageArray (imgTag) into imageArray
-   if imageArray is an array is false then return empty
-   --
-   --  display_Data imageArray, "html_GetImageArray()"
-   put imageArray ["data-imagestyle"] into dataImagestyle
-   put "<div style='padding: 12px; background:#eee; width:96%; align=centered;'>" into oldStandardDiv
-   switch
-      case dataImagestyle is not empty
-      case sHTML contains oldStandardDiv
-         return imageArray ["src"]
-      default
-         return imageArray ["src"]
-         -- return empty
-   end switch
-end pageItem_GetFirstImage
-
 command html_DeconstructImageArray imageAttributeArray, @srcURL, @imageCaption, @imageWidth, @imageHeight, @imageClass
    -- put keys (imageAttributeArray) into class, height, width, alt, srcv, data-index, data-atf, data-iml, data-deferred
    put imageAttributeArray ["scr"] into srcURL
